@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+  <head>
+    <title>FPL Alerts</title>
+    <style>
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: sans-serif;
+}
+
+h1 {
+  text-align: center;
+}
+
+form {
+  margin: 0 auto;
+  padding: 1rem;
+  width: 400px;
+  background-color: #eee;
+}
+
+table {
+  margin: 1rem;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-top: none;
+}
+
+th:first-child, td:first-child {
+  border-left: none;
+}
+
+th:last-child, td:last-child {
+  border-right: none;
+}
+    </style>
+  </head>
+  <body>
+    <h1>FPL Alerts</h1>
+    <form id="form">
+      Team ID: <input id="teamid" value="566365"> <button type="submit">Show</button>
+    </form>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Minutes</th>
+          <th>Goals scored</th>
+          <th>Assists</th>
+          <th>Clean sheets</th>
+          <th>Goals conceded</th>
+          <th>Own goals</th>
+          <th>Penalties saved</th>
+          <th>Penalties missed</th>
+          <th>Yellow cards</th>
+          <th>Red cards</th>
+          <th>Saves</th>
+          <th>Bonus</th>
+          <th>BPS</th>
+          <th>Influence</th>
+          <th>Creativity</th>
+          <th>Threat</th>
+          <th>ICT Index</th>
+          <th>Total points</th>
+          <th>Dreamteam?</th>
+        </tr>
+      </thead>
+      <tbody id="tablebody">
+      </tbody>
+    </table>
+    <script>
+const COLUMNS = [
+  'minutes',
+  'goals_scored',
+  'assists',
+  'clean_sheets',
+  'goals_conceded',
+  'own_goals',
+  'penalties_saved',
+  'penalties_missed',
+  'yellow_cards',
+  'red_cards',
+  'saves',
+  'bonus',
+  'bps',
+  'influence',
+  'creativity',
+  'threat',
+  'ict_index',
+  'total_points',
+  'in_dreamteam'
+]
+
+async function request (url) {
+  return fetch(`https://cors-anywhere.herokuapp.com/${url}`)
+}
+
+window.onload = function () {
+  document.getElementById('form').onsubmit = async function (event) {
+    event.preventDefault()
+    const teamId = document.getElementById('teamid').value
+    const staticResponse = await request('https://fantasy.premierleague.com/api/bootstrap-static/')
+    const { events, elements } = await staticResponse.json()
+
+    const currentEvent = events.find(function(event) { return event.is_current })
+
+    const picksResponse = await request(`https://fantasy.premierleague.com/api/entry/${teamId}/event/${currentEvent.id}/picks/`)
+    const { picks } = await picksResponse.json()
+
+    const eventResponse = await request(`https://fantasy.premierleague.com/api/event/${currentEvent.id}/live/`)
+    const { elements: eventElements } = await eventResponse.json()
+
+    const tableBody = document.getElementById('tablebody')
+
+    for (const pick of picks) {
+      const tableRow = document.createElement('tr')
+
+      const element = elements.find(function(element) { return element.id === pick.element})
+      const eventElement = eventElements.find(function(eventElement) { return eventElement.id === pick.element})
+
+      const nameCell = document.createElement('td')
+      const nameText = document.createTextNode(`${element.first_name} ${element.second_name}`)
+      nameCell.appendChild(nameText)
+      tableRow.appendChild(nameCell)
+
+      for (const column of COLUMNS) {
+        const propertyCell = document.createElement('td')
+        const propertyText = document.createTextNode(eventElement.stats[column])
+        propertyCell.appendChild(propertyText)
+        tableRow.appendChild(propertyCell)
+      }
+
+      tableBody.appendChild(tableRow)
+    }
+    return false
+  }
+}
+    </script>
+  </body>
+</html>
