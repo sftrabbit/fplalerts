@@ -51,7 +51,8 @@ th:last-child, td:last-child {
     <table>
       <thead>
         <tr>
-          <th>Name</th>
+          <th>#</th>
+          <th style="min-width: 200px">Name</th>
           <th>Minutes</th>
           <th>Goals scored</th>
           <th>Assists</th>
@@ -126,8 +127,15 @@ window.onload = function () {
       const element = elements.find(function(element) { return element.id === pick.element})
       const eventElement = eventElements.find(function(eventElement) { return eventElement.id === pick.element})
 
+      const positionCell = document.createElement('td')
+      const positionText = document.createTextNode(`${pick.position}`)
+      positionCell.appendChild(positionText)
+      tableRow.appendChild(positionCell)
+
+      const namePrefix = pick.is_captain ? '★ ' : pick.is_vice_captain ? '☆ ' : ''
+
       const nameCell = document.createElement('td')
-      const nameText = document.createTextNode(`${element.first_name} ${element.second_name}`)
+      const nameText = document.createTextNode(`${namePrefix}${element.first_name} ${element.second_name}`)
       nameCell.appendChild(nameText)
       tableRow.appendChild(nameCell)
 
