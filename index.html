@@ -223,6 +223,10 @@ const COLUMNS = [
 const UPDATE_MILLISECONDS = 1000
 const LOAD_MILLISECONDS = 30000
 
+const TEST_TEAMS = [
+  [471, 297, 294, 291, 293, 301, 302, 70, 388, 377, 396, 390, 399, 457, 395]
+]
+
 async function request (url) {
   return fetch(`https://cors-anywhere.herokuapp.com/${url}`)
 }
@@ -258,6 +262,25 @@ function getChanges (previousExplains, explains) {
   }
 
   return changes
+}
+
+async function getPicks (teamId, currentEvent) {
+  if (teamId.startsWith('test')) {
+    const testId = parseInt(teamId.substring(4))
+    return TEST_TEAMS[testId]
+      .map((elementId, index) => {
+        return {
+          element: elementId,
+          position: index + 1,
+          is_captain: false,
+          is_vice_captain: false
+        }
+      })
+  }
+
+  const picksResponse = await request(`https://fantasy.premierleague.com/api/entry/${teamId}/event/${currentEvent.id}/picks/`)
+  const { picks } = await picksResponse.json()
+  return picks
 }
 
 window.onload = function () {
@@ -381,8 +404,7 @@ window.onload = function () {
 
           const currentEvent = events.find(function(event) { return event.is_current })
 
-          const picksResponse = await request(`https://fantasy.premierleague.com/api/entry/${teamId}/event/${currentEvent.id}/picks/`)
-          const { picks } = await picksResponse.json()
+          const picks = await getPicks(teamId, currentEvent)
 
           const eventResponse = await request(`https://fantasy.premierleague.com/api/event/${currentEvent.id}/live/`)
           const { elements: eventElements } = await eventResponse.json()
