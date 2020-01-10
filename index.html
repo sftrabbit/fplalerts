@@ -221,14 +221,14 @@ const COLUMNS = [
 ]
 
 const UPDATE_MILLISECONDS = 1000
-const LOAD_MILLISECONDS = 15000
+const LOAD_MILLISECONDS = 30000
 
 const TEST_TEAMS = [
   [471, 297, 294, 291, 293, 301, 302, 70, 388, 377, 396, 390, 399, 457, 395]
 ]
 
 async function request (url) {
-  return fetch(`https://cors-anywhere.herokuapp.com/${url}`)
+  return fetch(`${url}`)
 }
 
 function removeAllChildren (node) {
