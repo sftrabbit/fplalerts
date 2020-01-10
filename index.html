@@ -19,7 +19,8 @@ h1 {
 form {
   margin: 0 auto;
   padding: 1rem;
-  width: 400px;
+  width: 90%;
+  max-width: 400px;
   background-color: #eee;
 }
 
@@ -41,13 +42,131 @@ th:first-child, td:first-child {
 th:last-child, td:last-child {
   border-right: none;
 }
+
+.alerts {
+  margin: 1rem auto;
+  padding: 1rem;
+  width: 90%;
+  max-width: 600px;
+  background-color: #eee;
+}
+
+.alerts h2 {
+  margin-top: 0;
+}
+
+.alert {
+  position: relative;
+  background-color: #fff;
+  padding: 1rem;
+  animation: alert 5s ease;
+  animation-iteration-count: 1;
+  margin-bottom: 1rem;
+}
+
+.alert:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes alert {
+  0% {
+    background-color: #ecd42b;
+  }
+  100% {
+    background-color: #fff;
+  }
+}
+
+.alert ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.alert small {
+  position: absolute;
+  display: block;
+  margin-bottom: 1em;
+  right: 1rem;
+}
+
+.loader,
+.loader:before,
+.loader:after {
+  background: #000;
+  -webkit-animation: load1 0.5s infinite ease-in-out;
+  animation: load1 0.5s infinite ease-in-out;
+  width: 0.2em;
+  height: 0.8em;
+}
+.loader {
+  display: inline-block;
+  color: #000;
+  text-indent: -9999em;
+  position: relative;
+  top: 1px;
+  left: 1rem;
+  font-size: 11px;
+  -webkit-transform: translateZ(0);
+  -ms-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-animation-delay: -0.16s;
+  animation-delay: -0.16s;
+}
+.loader:before,
+.loader:after {
+  position: absolute;
+  top: 0;
+  content: '';
+}
+.loader:before {
+  left: -0.3em;
+  -webkit-animation-delay: -0.32s;
+  animation-delay: -0.32s;
+}
+.loader:after {
+  left: 0.3em;
+}
+@-webkit-keyframes load1 {
+  0%,
+  80%,
+  100% {
+    box-shadow: 0 0;
+    height: 0.8em;
+  }
+  40% {
+    box-shadow: 0 -0.4em;
+    height: 1em;
+  }
+}
+@keyframes load1 {
+  0%,
+  80%,
+  100% {
+    box-shadow: 0 0;
+    height: 0.8em;
+  }
+  40% {
+    box-shadow: 0 -0.4em;
+    height: 1em;
+  }
+}
     </style>
   </head>
   <body>
     <h1>FPL Alerts</h1>
     <form id="form">
-      Team ID: <input id="teamid" value="566365"> <button type="submit">Show</button>
+      Team ID:
+      <input id="teamid" value="566365">
+      <button type="submit" id="button">Start</button>
+      <div class="loader" id="loader" style="visibility: hidden">Loading...</div>
+      <span id="time"></span>
     </form>
+    <div class="alerts">
+      <h2>Alerts</h2>
+      <div id="alerts">
+        No alerts
+      </div>
+    </div>
     <table>
       <thead>
         <tr>
@@ -100,54 +219,194 @@ const COLUMNS = [
   'in_dreamteam'
 ]
 
+const UPDATE_MILLISECONDS = 1000
+const LOAD_MILLISECONDS = 30000
+
 async function request (url) {
   return fetch(`https://cors-anywhere.herokuapp.com/${url}`)
 }
 
+function removeAllChildren (node) {
+  while (node.firstChild) {
+    node.removeChild(node.firstChild)
+  }
+}
+
+function getChanges (previousExplains, explains) {
+  const changes = []
+
+  for (const id in explains) {
+    for (const explainFixture of explains[id]) {
+      const previousExplainFixture = ((previousExplains[id] || [])
+        .find((previousExplainFixture) => previousExplainFixture.fixture === explainFixture.fixture))
+        || { stats: [] }
+
+      for (const explainStat of explainFixture.stats) {
+        const previousExplainStat = previousExplainFixture.stats.find((previousExplainStat) => previousExplainStat.identifier === explainStat.identifier)
+          || { points: 0 }
+
+        if (explainStat.points !== previousExplainStat.points) {
+          changes.push({
+            element: parseInt(id),
+            action: explainStat.identifier,
+            pointsDelta: explainStat.points - previousExplainStat.points
+          })
+        }
+      }
+    }
+  }
+
+  return changes
+}
+
 window.onload = function () {
+  const explains = {}
+
+  let running = false
+  let timer = null
+  let timePassed = 0
+  let hasAlerts = false
+
+  const tableBody = document.getElementById('tablebody')
+  const loader = document.getElementById('loader')
+  const button = document.getElementById('button')
+  const time = document.getElementById('time')
+  const alerts = document.getElementById('alerts')
+
   document.getElementById('form').onsubmit = async function (event) {
     event.preventDefault()
-    const teamId = document.getElementById('teamid').value
+
+    if (running) {
+      clearInterval(timer)
+      button.innerText = 'Start'
+      time.style.visibility = 'hidden'
+      timePassed = 0
+      running = false
+      return false
+    }
+
+    loader.style.visibility = 'visible'
     const staticResponse = await request('https://fantasy.premierleague.com/api/bootstrap-static/')
     const { events, elements } = await staticResponse.json()
 
-    const currentEvent = events.find(function(event) { return event.is_current })
+    const teamId = document.getElementById('teamid').value
 
-    const picksResponse = await request(`https://fantasy.premierleague.com/api/entry/${teamId}/event/${currentEvent.id}/picks/`)
-    const { picks } = await picksResponse.json()
+    const setTableContent = (picks, elements, eventElements) => {
+      const tableRows = []
 
-    const eventResponse = await request(`https://fantasy.premierleague.com/api/event/${currentEvent.id}/live/`)
-    const { elements: eventElements } = await eventResponse.json()
+      for (const pick of picks) {
+        const tableRow = document.createElement('tr')
 
-    const tableBody = document.getElementById('tablebody')
+        const element = elements.find(function(element) { return element.id === pick.element})
+        const eventElement = eventElements.find(function(eventElement) { return eventElement.id === pick.element})
 
-    for (const pick of picks) {
-      const tableRow = document.createElement('tr')
+        const positionCell = document.createElement('td')
+        const positionText = document.createTextNode(`${pick.position}`)
+        positionCell.appendChild(positionText)
+        tableRow.appendChild(positionCell)
 
-      const element = elements.find(function(element) { return element.id === pick.element})
-      const eventElement = eventElements.find(function(eventElement) { return eventElement.id === pick.element})
+        const namePrefix = pick.is_captain ? '★ ' : pick.is_vice_captain ? '☆ ' : ''
 
-      const positionCell = document.createElement('td')
-      const positionText = document.createTextNode(`${pick.position}`)
-      positionCell.appendChild(positionText)
-      tableRow.appendChild(positionCell)
+        const nameCell = document.createElement('td')
+        const nameText = document.createTextNode(`${namePrefix}${element.first_name} ${element.second_name}`)
+        nameCell.appendChild(nameText)
+        tableRow.appendChild(nameCell)
 
-      const namePrefix = pick.is_captain ? '★ ' : pick.is_vice_captain ? '☆ ' : ''
+        for (const column of COLUMNS) {
+          const propertyCell = document.createElement('td')
+          const propertyText = document.createTextNode(eventElement.stats[column])
+          propertyCell.appendChild(propertyText)
+          tableRow.appendChild(propertyCell)
+        }
 
-      const nameCell = document.createElement('td')
-      const nameText = document.createTextNode(`${namePrefix}${element.first_name} ${element.second_name}`)
-      nameCell.appendChild(nameText)
-      tableRow.appendChild(nameCell)
-
-      for (const column of COLUMNS) {
-        const propertyCell = document.createElement('td')
-        const propertyText = document.createTextNode(eventElement.stats[column])
-        propertyCell.appendChild(propertyText)
-        tableRow.appendChild(propertyCell)
+        tableRows.push(tableRow)
       }
 
-      tableBody.appendChild(tableRow)
+      removeAllChildren(tableBody)
+      for (const tableRow of tableRows) {
+        tableBody.appendChild(tableRow)
+      }
     }
+
+    const setExplains = (picks, eventElements) => {
+      for (const pick of picks) {
+        const eventElement = eventElements.find(function(eventElement) { return eventElement.id === pick.element})
+        explains[pick.element] = eventElement.explain
+      }
+    }
+
+    const createAlert = (elements, eventElements, change) => {
+      if (!hasAlerts) {
+        alerts.innerHTML = ''
+        hasAlerts = true
+      }
+
+      const element = elements.find(function(element) { return element.id === change.element})
+      const eventElement = eventElements.find(function(eventElement) { return eventElement.id === change.element})
+
+      const alert = document.createElement('div')
+      alert.className = 'alert'
+      alert.innerHTML = `
+        <small>at ${new Date().toLocaleTimeString()}</small>
+        ${change.pointsDelta > 0 ? '<span style="color: #0c0">▲</span>' : '<span style="color: #c00">▼</span>'}
+        ${change.pointsDelta > 0 ? '+' : ''}${change.pointsDelta}
+        (${eventElement.stats.total_points})
+        <b>${element.first_name} ${element.second_name}</b>
+        ${change.action}
+      `
+
+      alerts.prepend(alert)
+    }
+
+    const update = () => {
+      const remainingMilliseconds = timePassed % LOAD_MILLISECONDS
+
+      time.innerText = `${Math.floor((LOAD_MILLISECONDS - remainingMilliseconds) / 1000)}s`
+
+      setTimeout(async () => {
+        if (remainingMilliseconds === 0) {
+          loader.style.visibility = 'visible'
+          time.style.visibility = 'hidden'
+
+          const currentEvent = events.find(function(event) { return event.is_current })
+
+          const picksResponse = await request(`https://fantasy.premierleague.com/api/entry/${teamId}/event/${currentEvent.id}/picks/`)
+          const { picks } = await picksResponse.json()
+
+          const eventResponse = await request(`https://fantasy.premierleague.com/api/event/${currentEvent.id}/live/`)
+          const { elements: eventElements } = await eventResponse.json()
+
+          const firstLoad = Object.keys(explains).length === 0
+
+          const previousExplains = JSON.parse(JSON.stringify(explains))
+
+          setExplains(picks, eventElements)
+
+          if (!firstLoad) {
+            const changes = getChanges(previousExplains, explains)
+            for (const change of changes) {
+              createAlert(elements, eventElements, change)
+            }
+          }
+
+          setTableContent(picks, elements, eventElements)
+
+          loader.style.visibility = 'hidden'
+          if (running) {
+            time.style.visibility = 'visible'
+          }
+        }
+      }, 0)
+
+      timePassed += UPDATE_MILLISECONDS
+    }
+
+    update()
+    timer = setInterval(update, UPDATE_MILLISECONDS)
+
+    button.innerText = 'Stop'
+    running = true
+
     return false
   }
 }
