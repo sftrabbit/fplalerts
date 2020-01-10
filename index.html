@@ -261,12 +261,12 @@ function getChanges (previousExplains, explains) {
 }
 
 window.onload = function () {
-  const explains = {}
-
+  let explains = {}
   let running = false
   let timer = null
   let timePassed = 0
   let hasAlerts = false
+  let teamId = null
 
   const tableBody = document.getElementById('tablebody')
   const loader = document.getElementById('loader')
@@ -288,10 +288,19 @@ window.onload = function () {
     }
 
     loader.style.visibility = 'visible'
+
+    const previousTeamId = `${teamId}`
+    teamId = document.getElementById('teamid').value
+
+    if (teamId !== previousTeamId) {
+      explains = {}
+      hasAlerts = false
+      alerts.innerHTML = 'No alerts'
+      removeAllChildren(tableBody)
+    }
+
     const staticResponse = await request('https://fantasy.premierleague.com/api/bootstrap-static/')
     const { events, elements } = await staticResponse.json()
-
-    const teamId = document.getElementById('teamid').value
 
     const setTableContent = (picks, elements, eventElements) => {
       const tableRows = []
