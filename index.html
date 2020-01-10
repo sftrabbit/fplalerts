@@ -12,7 +12,7 @@ body {
   font-family: sans-serif;
 }
 
-h1 {
+h1, h2 {
   text-align: center;
 }
 
@@ -161,6 +161,7 @@ th:last-child, td:last-child {
       <div class="loader" id="loader" style="visibility: hidden">Loading...</div>
       <span id="time"></span>
     </form>
+    <h2>Game week: <span id="gameweek">&mdash;</span></h2>
     <div class="alerts">
       <h2>Alerts</h2>
       <div id="alerts">
@@ -272,6 +273,7 @@ window.onload = function () {
   const button = document.getElementById('button')
   const time = document.getElementById('time')
   const alerts = document.getElementById('alerts')
+  const gameweek = document.getElementById('gameweek')
 
   document.getElementById('form').onsubmit = async function (event) {
     event.preventDefault()
@@ -389,6 +391,7 @@ window.onload = function () {
             }
           }
 
+          gameweek.innerText = `${currentEvent.id}`
           setTableContent(picks, elements, eventElements)
 
           loader.style.visibility = 'hidden'
