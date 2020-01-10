@@ -322,9 +322,6 @@ window.onload = function () {
       removeAllChildren(tableBody)
     }
 
-    const staticResponse = await request('https://fantasy.premierleague.com/api/bootstrap-static/')
-    const { events, elements } = await staticResponse.json()
-
     const setTableContent = (picks, elements, eventElements) => {
       const tableRows = []
 
@@ -401,6 +398,9 @@ window.onload = function () {
         if (remainingMilliseconds === 0) {
           loader.style.visibility = 'visible'
           time.style.visibility = 'hidden'
+
+          const staticResponse = await request('https://fantasy.premierleague.com/api/bootstrap-static/')
+          const { events, elements } = await staticResponse.json()
 
           const currentEvent = events.find(function(event) { return event.is_current })
 
