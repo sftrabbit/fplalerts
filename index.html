@@ -264,10 +264,20 @@ function getChanges (previousExplains, explains) {
   return changes
 }
 
-async function getPicks (teamId, currentEvent) {
+async function getPicks (staticPicks, teamId, currentEvent) {
+  if (staticPicks[teamId]) {
+    return staticPicks[teamId]
+  }
+
+  const picksResponse = await request(`https://fantasy.premierleague.com/api/entry/${teamId}/event/${currentEvent.id}/picks/`)
+  const { picks } = await picksResponse.json()
+  return picks
+}
+
+async function loadStaticPicks (staticPicks, teamId) {
   if (teamId.startsWith('test')) {
     const testId = parseInt(teamId.substring(4))
-    return TEST_TEAMS[testId]
+    staticPicks[teamId] = TEST_TEAMS[testId]
       .map((elementId, index) => {
         return {
           element: elementId,
@@ -276,11 +286,36 @@ async function getPicks (teamId, currentEvent) {
           is_vice_captain: false
         }
       })
-  }
+  } else if (teamId.startsWith('fixture')) {
+    const fixtureId = parseInt(teamId.substring(7))
+    console.log(fixtureId)
 
-  const picksResponse = await request(`https://fantasy.premierleague.com/api/entry/${teamId}/event/${currentEvent.id}/picks/`)
-  const { picks } = await picksResponse.json()
-  return picks
+    const fixturesResponse = await request('https://fantasy.premierleague.com/api/fixtures/')
+    const fixtures = await fixturesResponse.json()
+
+    const { team_a: awayTeamId, team_h: homeTeamId } = fixtures.find((fixture) => fixture.id === fixtureId)
+
+    const staticResponse = await request('https://fantasy.premierleague.com/api/bootstrap-static/')
+    const { elements } = await staticResponse.json()
+
+    const awayElements = elements.filter((element) => element.team === awayTeamId)
+    const homeElements = elements.filter((element) => element.team === homeTeamId)
+
+    staticPicks[teamId] = [
+      ...awayElements.map((element, index) => ({
+        element: element.id,
+        position: `A${index + 1}`,
+        is_captain: false,
+        is_vice_captain: false
+      })),
+      ...homeElements.map((element, index) => ({
+        element: element.id,
+        position: `H${index + 1}`,
+        is_captain: false,
+        is_vice_captain: false
+      }))
+    ]
+  }
 }
 
 window.onload = function () {
@@ -290,6 +325,8 @@ window.onload = function () {
   let timePassed = 0
   let hasAlerts = false
   let teamId = null
+
+  const staticPicks = {}
 
   const tableBody = document.getElementById('tablebody')
   const loader = document.getElementById('loader')
@@ -321,6 +358,8 @@ window.onload = function () {
       alerts.innerHTML = 'No alerts'
       removeAllChildren(tableBody)
     }
+
+    await loadStaticPicks(staticPicks, teamId)
 
     const setTableContent = (picks, elements, eventElements) => {
       const tableRows = []
@@ -404,7 +443,7 @@ window.onload = function () {
 
           const currentEvent = events.find(function(event) { return event.is_current })
 
-          const picks = await getPicks(teamId, currentEvent)
+          const picks = await getPicks(staticPicks, teamId, currentEvent)
 
           const eventResponse = await request(`https://fantasy.premierleague.com/api/event/${currentEvent.id}/live/`)
           const { elements: eventElements } = await eventResponse.json()
