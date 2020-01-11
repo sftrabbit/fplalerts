@@ -246,14 +246,21 @@ function getChanges (previousExplains, explains) {
         .find((previousExplainFixture) => previousExplainFixture.fixture === explainFixture.fixture))
         || { stats: [] }
 
-      for (const explainStat of explainFixture.stats) {
-        const previousExplainStat = previousExplainFixture.stats.find((previousExplainStat) => previousExplainStat.identifier === explainStat.identifier)
+      const allIdentifiers = [...new Set(
+        [...explainFixture.stats, ...previousExplainFixture.stats]
+          .map((stat) => stat.identifier)
+      )]
+
+      for (const identifier of allIdentifiers) {
+        const explainStat = explainFixture.stats.find((explainStat) => explainStat.identifier === identifier)
+          || { points: 0 }
+        const previousExplainStat = previousExplainFixture.stats.find((previousExplainStat) => previousExplainStat.identifier === identifier)
           || { points: 0 }
 
         if (explainStat.points !== previousExplainStat.points) {
           changes.push({
             element: parseInt(id),
-            action: explainStat.identifier,
+            action: identifier,
             pointsDelta: explainStat.points - previousExplainStat.points
           })
         }
