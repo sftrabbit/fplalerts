@@ -150,6 +150,13 @@ th:last-child, td:last-child {
     height: 1em;
   }
 }
+
+textarea {
+  display: block;
+  margin: 1rem auto;
+  width: 800px;
+  height: 500px;
+}
     </style>
   </head>
   <body>
@@ -197,6 +204,8 @@ th:last-child, td:last-child {
       <tbody id="tablebody">
       </tbody>
     </table>
+    <h2>Logs</h2>
+    <textarea id="logs"></textarea>
     <script>
 const COLUMNS = [
   'minutes',
@@ -295,7 +304,6 @@ async function loadStaticPicks (staticPicks, teamId) {
       })
   } else if (teamId.startsWith('fixture')) {
     const fixtureId = parseInt(teamId.substring(7))
-    console.log(fixtureId)
 
     const fixturesResponse = await request('https://fantasy.premierleague.com/api/fixtures/')
     const fixtures = await fixturesResponse.json()
@@ -341,6 +349,11 @@ window.onload = function () {
   const time = document.getElementById('time')
   const alerts = document.getElementById('alerts')
   const gameweek = document.getElementById('gameweek')
+  const logs = document.getElementById('logs')
+
+  function log(message) {
+    logs.value += `${message}\n`
+  }
 
   document.getElementById('form').onsubmit = async function (event) {
     event.preventDefault()
@@ -461,8 +474,23 @@ window.onload = function () {
 
           setExplains(picks, eventElements)
 
-          if (!firstLoad) {
+          if (firstLoad) {
+            log(JSON.stringify({
+              time: new Date(),
+              explains,
+              changes: []
+            }))
+          } else {
             const changes = getChanges(previousExplains, explains)
+
+            if (changes.length > 0) {
+              log(JSON.stringify({
+                time: new Date(),
+                explains,
+                changes
+              }))
+            }
+
             for (const change of changes) {
               createAlert(elements, eventElements, change)
             }
