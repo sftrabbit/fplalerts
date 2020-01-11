@@ -378,7 +378,7 @@ window.onload = function () {
         const namePrefix = pick.is_captain ? '★ ' : pick.is_vice_captain ? '☆ ' : ''
 
         const nameCell = document.createElement('td')
-        const nameText = document.createTextNode(`${namePrefix}${element.first_name} ${element.second_name}`)
+        const nameText = document.createTextNode(`${namePrefix}${element.web_name}`)
         nameCell.appendChild(nameText)
         tableRow.appendChild(nameCell)
 
@@ -421,7 +421,7 @@ window.onload = function () {
         ${change.pointsDelta > 0 ? '<span style="color: #0c0">▲</span>' : '<span style="color: #c00">▼</span>'}
         ${change.pointsDelta > 0 ? '+' : ''}${change.pointsDelta}
         (${eventElement.stats.total_points})
-        <b>${element.first_name} ${element.second_name}</b>
+        <b>${element.web_name}</b>
         ${change.action}
       `
 
